@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>Robot Blockly Pro</title>
+    
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+    <script src="https://unpkg.com/blockly/msg/sk.js"></script>
+
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        #blocklyDiv { height: 400px; width: 100%; border: 1px solid #ccc; margin-top: 10px; }
+        .buttons { margin-top: 15px; display: flex; gap: 10px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; background: #007bff; color: white; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        pre { background: #222; color: #7f7; padding: 15px; border-radius: 5px; overflow-x: auto; min-height: 50px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🤖 Robot Builder</h1>
+    <p>Presuň bloky do plochy a klikni na "Generovať kód".</p>
+
+    <div id="blocklyDiv"></div>
+
+    <div class="buttons">
+        <button onclick="generateCode()">Generovať kód</button>
+        <button style="background: #28a745;" onclick="nahratDoESP()">Nahrať do ESP32</button>
+    </div>
+
+    <h3>Vygenerovaný kód pre robota:</h3>
+    <pre id="codeOutput">// Kód sa zobrazí tu...</pre>
+</div>
+
+<xml id="toolbox" style="display: none">
+    <category name="Pohyb" colour="225">
+        <block type="robot_vpred"></block>
+        <block type="robot_vpravo"></block>
+        
+        <block type="move_forward">
+            <value name="Pocet">
+                <shadow type="math_number">
+                    <field name="NUM">1</field>
+                </shadow>
+            </value>
+        </block>
+    </category>
+
+    <category name="Matematika" colour="230">
+        <block type="math_number"></block>
+    </category>
+
+    <category name="Logika" colour="210">
+        <block type="controls_if"></block>
+        <block type="logic_compare"></block>
+    </category>
+</xml>
+
+<script>
+    // 3. DEFINÍCIA VLASTNÝCH BLOKOV (To, čo si robil v Block Factory)
+    
+    // Blok VPRED
+    Blockly.Blocks['robot_vpred'] = {
+      init: function() {
+        this.appendDummyInput().appendField("Robot: Choď vpred ⬆️");
+        this.setPreviousStatement(true, null);
+        this.setNextStatement(true, null);
+        this.setColour(120);
+      }
+    };
+
+    // Blok VPRAVO
+    Blockly.Blocks['robot_vpravo'] = {
+      init: function() {
+        this.appendDummyInput().appendField("Robot: Otoč sa vpravo ↪️");
+        this.setPreviousStatement(true, null);
+        this.setNextStatement(true, null);
+        this.setColour(120);
+      }
+    };
+
+Blockly.defineBlocksWithJsonArray([
+  {
+    "type": "move_forward",
+    "message0": "Robot: choď vpred o %1",
+    "args0": [
+      {
+        "type": "input_value",
+        "name": "Pocet",
+        "check": "Number"
+      }
+    ],
+    "previousStatement": null,
+    "nextStatement": null,
+    "colour": 225,
+    "tooltip": "Posunie robota vpred o zadaný počet polí",
+    "helpUrl": ""
+  }
+]);
+
+    // 4. DEFINÍCIA GENERÁTORA (Čo tie bloky napíšu ako text)
+    javascript.javascriptGenerator.forBlock['robot_vpred'] = function(block) {
+      return "robot.moveForward();\n";
+    };
+
+    javascript.javascriptGenerator.forBlock['robot_vpravo'] = function(block) {
+      return "vpravo;\n";
+    };
+
+javascript.javascriptGenerator.forBlock['move_forward'] = function(block, generator) {
+  // 1. Získame hodnotu z pripojeného bloku (ak tam nič nie je, dáme 0)
+  var value_pocet = generator.valueToCode(block, 'Pocet', javascript.Order.ATOMIC) || '0';
+  
+  // 2. Vytvoríme textový príkaz, napr. "vpred:5"
+  var code = 'vpred:' + value_pocet + ';'+'\n';
+  
+  return code;
+};
+
+
+    // 5. INICIALIZÁCIA PLOCHY
+    const workspace = Blockly.inject('blocklyDiv', {
+        toolbox: document.getElementById('toolbox'),
+        grid: { spacing: 20, length: 3, colour: '#ccc', snap: true },
+        trashcan: true
+    });
+
+    // Funkcia na preklad blokov na text
+    function generateCode() {
+        const code = javascript.javascriptGenerator.workspaceToCode(workspace);
+        document.getElementById('codeOutput').innerText = code || "// Pridaj nejaké bloky!";
+    }
+
+    // Funkcia na odoslanie kódu do ESP32
+    function nahratDoESP() {
+    // 1. Získame kód z Blockly plochy (ten istý, čo vidíš v čiernom okne)
+    const kod = javascript.javascriptGenerator.workspaceToCode(workspace);
+
+    if (!kod) {
+        alert("Plocha je prázdna! Najprv poskladaj nejaké bloky.");
+        return;
+    }
+
+    // 2. IP adresa tvojho ESP32 (tú zistíš v Serial Monitore Arduina)
+    // POZOR: Musíš tam dať tú svoju, napr. "192.168.1.15"
+    const ipRobota = "192.168.1.XX"; 
+
+    // 3. Pošleme to cez sieť (pomocou príkazu fetch)
+    fetch(`http://${ipRobota}/prikaz?data=${encodeURIComponent(kod)}`)
+        .then(response => {
+            if (response.ok) {
+                alert("Kód úspešne odoslaný! Robot by sa mal pohnúť.");
+            }
+        })
+        .catch(error => {
+            console.error("Chyba:", error);
+            alert("Chyba: Nepodarilo sa spojiť s robotom. Skontroluj, či ste na rovnakej Wi-Fi!");
+        });
+}
+</script>
+
+</body>
+</html>
