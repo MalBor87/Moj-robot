@@ -2,165 +2,719 @@
 <html lang="sk">
 <head>
     <meta charset="UTF-8">
-    <title>Robot Blockly Pro</title>
-    
-    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
-    <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
-    <script src="https://unpkg.com/blockly/msg/sk.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programovanie robota</title>
+
+    <script src="/blockly_compressed.js"></script>
+    <script src="/blocks_compressed.js"></script>
+    <script src="/javascript_compressed.js"></script>
+    <script src="/en.js"></script>
+
+    <script>
+    // Generátory pre štandardné Blockly bloky
+   /* const JS = javascript.javascriptGenerator;
+    if (!JS.forBlock['math_number'])
+      JS.forBlock['math_number'] = function(b) {
+        return [b.getFieldValue('NUM'), javascript.Order.ATOMIC];
+      };
+    if (!JS.forBlock['math_arithmetic'])
+      JS.forBlock['math_arithmetic'] = function(b, g) {
+        const ops = {ADD:'+',MINUS:'-',MULTIPLY:'*',DIVIDE:'/'};
+        const op = ops[b.getFieldValue('OP')];
+        const a = g.valueToCode(b,'A',javascript.Order.ATOMIC)||'0';
+        const bv = g.valueToCode(b,'B',javascript.Order.ATOMIC)||'0';
+        return [`${a}${op}${bv}`, javascript.Order.ATOMIC];
+      };
+    if (!JS.forBlock['controls_repeat_ext'])
+      JS.forBlock['controls_repeat_ext'] = function(b, g) {
+        const n = g.valueToCode(b,'TIMES',javascript.Order.ATOMIC)||'0';
+        const body = g.statementToCode(b,'DO');
+        const cleanBody = body.trim().replace(/,\s*$/, "");
+        return `{"cmd":"repeat", "times":${n}, "nested":[${cleanBody}]},\n`;
+      };
+    if (!JS.forBlock['controls_if'])
+      JS.forBlock['controls_if'] = function(b, g) {
+        const cond = g.valueToCode(b,'IF0',javascript.Order.ATOMIC)||'false';
+        const body = g.statementToCode(b,'DO0');
+        return `if(${cond}){\n${body}}\n`;
+      };
+    if (!JS.forBlock['logic_compare'])
+      JS.forBlock['logic_compare'] = function(b, g) {
+        const ops = {EQ:'==',NEQ:'!=',LT:'<',LTE:'<=',GT:'>',GTE:'>='};
+        const op = ops[b.getFieldValue('OP')];
+        const a = g.valueToCode(b,'A',javascript.Order.ATOMIC)||'0';
+        const bv = g.valueToCode(b,'B',javascript.Order.ATOMIC)||'0';
+        return [`${a}${op}${bv}`, javascript.Order.ATOMIC];
+      };
+    if (!JS.forBlock['controls_whileUntil'])
+  JS.forBlock['controls_whileUntil'] = function(b, g) {
+    const mode = b.getFieldValue('MODE'); // WHILE alebo UNTIL
+    const condition = g.valueToCode(b, 'BOOL', javascript.Order.ATOMIC) || 'false';
+    const body = g.statementToCode(b, 'DO');
+    const cleanBody = body.trim().replace(/,\s*$/, "");
+
+    return `{"cmd":"loop_while", "mode":"${mode}", "nested":[${cleanBody}]},\n`;
+  };*/
+
+    </script>
 
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        #blocklyDiv { height: 400px; width: 100%; border: 1px solid #ccc; margin-top: 10px; }
-        .buttons { margin-top: 15px; display: flex; gap: 10px; }
-        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; background: #007bff; color: white; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        pre { background: #222; color: #7f7; padding: 15px; border-radius: 5px; overflow-x: auto; min-height: 50px; }
+        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
+        .container { max-width: 960px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; }
+        #blocklyDiv { height: 420px; width: 100%; border: 1px solid #ccc; border-radius: 6px; margin-top: 10px; }
+        .buttons { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; background: #007bff; color: white; font-weight: bold; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        button:disabled { background: #aaa; cursor: not-allowed; }
+        #btnSpustit  { background: #28a745; }
+        #btnZastavit { background: #dc3545; }
+        pre { background: #222; color: #7f7; padding: 15px; border-radius: 5px; overflow-x: auto; min-height: 50px; font-size: 13px; }
+        #status-bar {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            background: #e9ecef;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #status-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #aaa;
+            flex-shrink: 0;
+        }
+        #status-dot.connected    { background: #28a745; }
+        #status-dot.running      { background: #fd7e14; }
+        #status-dot.disconnected { background: #dc3545; }
+
+        /* Panel senzorov */
+        #senzor-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            padding: 10px 14px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+
+        .senzor-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Štýl pre farebnú guličku */
+        .senzor-led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            background-color: #ccc; /* Predvolená sivá */
+            border: 1px solid #999;
+        }
+        .senzor-led.on  { background: #2ecc71; border-color: #27ae60; }
+        .senzor-led.off { background: #e74c3c; border-color: #c0392b; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🤖 Robot Builder</h1>
-    <p>Presuň bloky do plochy a klikni na "Generovať kód".</p>
+    <h1>🤖 Programovanie robota</h1>
+    <p>Poskladaj bloky a klikni <strong>Spustiť program</strong>. Robot vykoná každý krok po dokončení predchádzajúceho.</p>
+
+    <!-- Panel stavu senzorov -->
+    <div id="senzor-bar">
+    <strong>🚥 Senzory farby:</strong>
+    <div class="senzor-item">
+        <div class="senzor-led" id="led-c1"></div>
+        <span>Senzor vprede: <b id="val-c1">-</b></span>
+    </div>
+    <div class="senzor-item">
+        <div class="senzor-led" id="led-c2"></div>
+        <span>Senzor stredný: <b id="val-c2">-</b></span>
+    </div>
+    <div class="senzor-item">
+        <div class="senzor-led" id="led-c3"></div>
+        <span>Senzor pravý: <b id="val-c3">-</b></span>
+    </div>
+    
+    <div class="senzor-item" style="margin-left: 20px;">
+        <strong>🔋 Batéria:</strong>
+        <span id="val-bat">0</span>%
+    </div>
+</div>
+<div id="voltage-alert" style="display: none; background: #ff4444; color: white; padding: 10px; text-align: center; font-weight: bold; border-radius: 8px; margin-bottom: 10px;">
+    ⚠️ POZOR: NÍZKE NAPÄTIE BATÉRIE! 🪫
+</div>
 
     <div id="blocklyDiv"></div>
 
     <div class="buttons">
-        <button onclick="generateCode()">Generovať kód</button>
-        <button style="background: #28a745;" onclick="nahratDoESP()">Nahrať do ESP32</button>
+        <button onclick="generateCode()">👁 Zobraziť kód</button>
+        <button id="btnSpustit"  onclick="spustitProgram()">▶ Spustiť program</button>
+        <button id="btnZastavit" onclick="zastavitRobota()" disabled>⏹ Zastaviť</button>
     </div>
 
-    <h3>Vygenerovaný kód pre robota:</h3>
+    <div id="status-bar">
+        <div id="status-dot" class="disconnected"></div>
+        <span id="status-text">Nepripojený k robotovi</span>
+    </div>
+
+    <h3>Vygenerované príkazy:</h3>
     <pre id="codeOutput">// Kód sa zobrazí tu...</pre>
 </div>
 
-<xml id="toolbox" style="display: none">
-    <category name="Pohyb" colour="225">
-        <block type="robot_vpred"></block>
-        <block type="robot_vpravo"></block>
-        
+<!-- TOOLBOX -->
+<xml id="toolbox" style="display:none">
+    <category name="🚗 Pohyb" colour="120">
         <block type="move_forward">
-            <value name="Pocet">
-                <shadow type="math_number">
-                    <field name="NUM">1</field>
-                </shadow>
+            <value name="HODNOTA">
+                <shadow type="math_number"><field name="NUM">1</field></shadow>
+            </value>
+        </block>
+        <block type="move_backward">
+            <value name="HODNOTA">
+                <shadow type="math_number"><field name="NUM">1</field></shadow>
+            </value>
+        </block>
+        <block type="turn_right">
+            <value name="HODNOTA">
+                <shadow type="math_number"><field name="NUM">90</field></shadow>
+            </value>
+        </block>
+        <block type="turn_left">
+            <value name="HODNOTA">
+                <shadow type="math_number"><field name="NUM">90</field></shadow> </value>
+        </block>
+        <block type="robot_stop"></block>
+        <block type="robot_pause">
+            <value name="HODNOTA">
+                <shadow type="math_number"><field name="NUM">1000</field></shadow>
             </value>
         </block>
     </category>
 
-    <category name="Matematika" colour="230">
-        <block type="math_number"></block>
+    <category name="📡 Senzory" colour="30">
+        <block type="robot_while_color"></block>
+        <block type="wait_until_color"></block>
+        <block type="sensor_digital"></block>
+        <block type="sensor_digital_value"></block>
+        <block type="get_sensor_color"></block>
+        <block type="text">
+            <field name="TEXT">red</field>
+        </block>
     </category>
 
-    <category name="Logika" colour="210">
+    <!-- <category name="🔢 Matematika" colour="230">
+        <block type="math_number"></block>
+        <block type="math_arithmetic"></block>
+    </category> -->
+    
+    <!-- <category name="🔁 Opakovanie" colour="120">
+        <block type="controls_repeat_ext">
+            <value name="TIMES">
+                <shadow type="math_number"><field name="NUM">3</field></shadow>
+            </value>
+        </block>
+    </category> -->
+    
+    <category name="❓ Logika" colour="210">
         <block type="controls_if"></block>
+        <block type="controls_repeat_ext">
+            <value name="TIMES">
+                <shadow type="math_number"><field name="NUM">3</field></shadow>
+            </value>
+        </block>
+        <block type="simple_while"></block>
+        <block type="controls_whileUntil"></block>
         <block type="logic_compare"></block>
+        <block type="math_number"></block>
+        <block type="math_arithmetic"></block>
+        <block type="logic_operation"></block>
+        <block type="logic_boolean"></block>
     </category>
 </xml>
 
 <script>
-    // 3. DEFINÍCIA VLASTNÝCH BLOKOV (To, čo si robil v Block Factory)
-    
-    // Blok VPRED
-    Blockly.Blocks['robot_vpred'] = {
-      init: function() {
-        this.appendDummyInput().appendField("Robot: Choď vpred ⬆️");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(120);
-      }
-    };
-
-    // Blok VPRAVO
-    Blockly.Blocks['robot_vpravo'] = {
-      init: function() {
-        this.appendDummyInput().appendField("Robot: Otoč sa vpravo ↪️");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(120);
-      }
-    };
-
+// ============================================================
+// KOMPLETNÁ DEFINÍCIA BLOKOV (VŠETKO V JEDNOM)
+// ============================================================
 Blockly.defineBlocksWithJsonArray([
+  // POHYB
   {
     "type": "move_forward",
-    "message0": "Robot: choď vpred o %1",
-    "args0": [
-      {
-        "type": "input_value",
-        "name": "Pocet",
-        "check": "Number"
-      }
-    ],
-    "previousStatement": null,
-    "nextStatement": null,
-    "colour": 225,
-    "tooltip": "Posunie robota vpred o zadaný počet polí",
-    "helpUrl": ""
-  }
+    "message0": "Choď vpred o %1 kroky",
+    "args0": [{ "type": "input_value", "name": "HODNOTA", "check": "Number" }],
+    "previousStatement": null, "nextStatement": null,
+    "colour": 120
+  },
+  {
+    "type": "move_backward",
+    "message0": "Choď vzad o %1 kroky",
+    "args0": [{ "type": "input_value", "name": "HODNOTA", "check": "Number" }],
+    "previousStatement": null, "nextStatement": null,
+    "colour": 120
+  },
+  {
+    "type": "turn_right",
+    "message0": "Otoč sa vpravo o %1 °",
+    "args0": [{ "type": "input_value", "name": "HODNOTA", "check": "Number" }],
+    "previousStatement": null, "nextStatement": null,
+    "colour": 160
+  },
+  {
+    "type": "turn_left",
+    "message0": "Otoč sa vľavo o %1 °",
+    "args0": [{ "type": "input_value", "name": "HODNOTA", "check": "Number" }],
+    "previousStatement": null, "nextStatement": null,
+    "colour": 160
+  },
+  {
+    "type": "robot_stop",
+    "message0": "Zastav robota 🛑",
+    "previousStatement": null, "nextStatement": null,
+    "colour": 0
+  },
+  {
+    "type": "robot_pause",
+    "message0": "Počkaj %1 ms",
+    "args0": [{ "type": "input_value", "name": "HODNOTA", "check": "Number" }],
+    "previousStatement": null, "nextStatement": null,
+    "colour": 60
+  },
+  // SENZORY
+  {
+    "type": "wait_until_color",
+    "message0": "opakuj kým nie je farba %1",
+    "args0": [{
+      "type": "field_dropdown",
+      "name": "COLOR",
+      "options": [["červená","red"], ["zelená","green"], ["modrá","blue"]]
+    }],
+    "previousStatement": null, "nextStatement": null,
+    "colour": 20
+  },
+  {
+    "type": "sensor_digital",
+    "message0": "senzor %1 je aktívny",
+    "args0": [{
+      "type": "field_dropdown",
+      "name": "SENSOR",
+      "options": [["1","s1"],["2","s2"],["3","s3"],["4","s4"]]
+    }],
+    "output": "Boolean",
+    "colour": 30
+  },
+  {
+    "type": "sensor_digital_value",
+    "message0": "hodnota senzora %1",
+    "args0": [{
+      "type": "field_dropdown",
+      "name": "SENSOR",
+      "options": [["1","s1"],["2","s2"],["3","s3"],["4","s4"]]
+    }],
+    "output": "Number",
+    "colour": 30
+  },
+  
+  {
+  "type": "robot_while_color",
+  "message0": "opakuj kým nie je farba %1 %2 vykonaj %3",
+  "args0": [
+    {
+      "type": "field_dropdown",
+      "name": "COLOR",
+      "options": [["červená","red"], ["zelená","green"], ["modrá","blue"]]
+    },
+    { "type": "input_dummy" },
+    { "type": "input_statement", "name": "DO" }
+  ],
+  "previousStatement": null,
+  "nextStatement": null,
+  "colour": 20
+},
+// blok na získanie aktuálnej farby zo senzora (vracia text "red", "green", "blue" alebo "none")
+{
+  "type": "get_sensor_color",
+  "message0": "farba zo senzora %1",
+  "args0": [
+    {
+      "type": "field_dropdown",
+      "name": "SENSOR",
+      "options": [ ["1 Predný", "c1"], ["2 (Stred)", "c2"], ["3 (Pravý)", "c3"] ]
+    }
+  ],
+  "output": "String", // Tento blok vracia text, preto má "výčnelok" vľavo
+  "colour": 30,
+  "tooltip": "Vráti aktuálnu farbu zo zvoleného senzora."
+},
+
+//while
+
+{
+  "type": "simple_while",
+  "message0": "While %1 %2 do %3",
+  "args0": [
+    { "type": "input_value", "name": "CONDITION", "check": "Boolean" },
+    { "type": "input_dummy" },
+    { "type": "input_statement", "name": "DO" }
+  ],
+  "previousStatement": null,
+  "nextStatement": null,
+  "colour": 210,
+  "tooltip": "Opakuje príkazy, kým je podmienka splnená."
+}
+
+
 ]);
+// ============================================================
+//  OPRAVENÉ GENERÁTORY POHYBOVÝCH BLOKOV (ČISTÝ JSON)
+// ============================================================
+javascript.javascriptGenerator.forBlock['move_forward'] = function(block, gen) {
+  var val = gen.valueToCode(block, 'HODNOTA', javascript.Order.ATOMIC) || '0';
+  return `{"cmd":"forward","value":${val}},`; 
+};
 
-    // 4. DEFINÍCIA GENERÁTORA (Čo tie bloky napíšu ako text)
-    javascript.javascriptGenerator.forBlock['robot_vpred'] = function(block) {
-      return "robot.moveForward();\n";
-    };
+javascript.javascriptGenerator.forBlock['move_backward'] = function(block, gen) {
+  var val = gen.valueToCode(block, 'HODNOTA', javascript.Order.ATOMIC) || '0';
+  return `{"cmd":"backward","value":${val}},`;
+};
 
-    javascript.javascriptGenerator.forBlock['robot_vpravo'] = function(block) {
-      return "vpravo;\n";
-    };
+javascript.javascriptGenerator.forBlock['turn_right'] = function(block, gen) {
+  var val = gen.valueToCode(block, 'HODNOTA', javascript.Order.ATOMIC) || '0';
+  return `{"cmd":"right","value":${val}},`;
+};
 
-javascript.javascriptGenerator.forBlock['move_forward'] = function(block, generator) {
-  // 1. Získame hodnotu z pripojeného bloku (ak tam nič nie je, dáme 0)
-  var value_pocet = generator.valueToCode(block, 'Pocet', javascript.Order.ATOMIC) || '0';
+javascript.javascriptGenerator.forBlock['turn_left'] = function(block, gen) {
+  var val = gen.valueToCode(block, 'HODNOTA', javascript.Order.ATOMIC) || '0';
+  return `{"cmd":"left","value":${val}},`;
+};
+
+javascript.javascriptGenerator.forBlock['robot_stop'] = function() {
+  return `{"cmd":"stop","value":0},`;
+};
+
+javascript.javascriptGenerator.forBlock['robot_pause'] = function(block, gen) {
+  var val = gen.valueToCode(block, 'HODNOTA', javascript.Order.ATOMIC) || '0';
+  return `{"cmd":"pause","value":${val}},`;
+};
+
+// ============================================================
+//  GENERÁTORY SENZOROVÝCH BLOKOV
+// ============================================================
+
+javascript.javascriptGenerator.forBlock['wait_until_color'] = function(block) {
+  var color = block.getFieldValue('COLOR');
+  return `{"cmd":"while_color","target":"${color}"},`;
+};
+
+// Tento blok slúži len ako hodnota do IF podmienky, ten môže zostať takto:
+javascript.javascriptGenerator.forBlock['sensor_digital_value'] = function(block) {
+  const s = block.getFieldValue('SENSOR');
+  return [`senzory.${s}`, javascript.Order.ATOMIC];
+};
+
+// generator pre senzor farby, ktorý vráti aktuálnu farbu ako text (red, green, blue alebo none)
+javascript.javascriptGenerator.forBlock['get_sensor_color'] = function(block) {
+  var sensor = block.getFieldValue('SENSOR');
+  // Tento kód sa použije pri vyhodnocovaní podmienky na webe
+  var code = `getLatestSensorColor('${sensor}')`; 
+  return [code, javascript.Order.ATOMIC];
+};
+
+javascript.javascriptGenerator.forBlock['robot_while_color'] = function(block, gen) {
+  const color = block.getFieldValue('COLOR');
+  // Získa kód z vnútra bloku
+  let branch = gen.statementToCode(block, 'DO');
   
-  // 2. Vytvoríme textový príkaz, napr. "vpred:5"
-  var code = 'vpred:' + value_pocet + ';'+'\n';
-  
-  return code;
+  // Očistíme čiarky z vnútra, aby bol JSON validný
+  branch = branch.trim();
+  if (branch.endsWith(',')) {
+      branch = branch.slice(0, -1);
+  }
+
+  // Výsledný JSON príkaz pre ESP32
+  return `{"cmd":"loop_color", "target":"${color}", "nested":[${branch}]},`;
 };
 
 
-    // 5. INICIALIZÁCIA PLOCHY
-    const workspace = Blockly.inject('blocklyDiv', {
-        toolbox: document.getElementById('toolbox'),
-        grid: { spacing: 20, length: 3, colour: '#ccc', snap: true },
-        trashcan: true
-    });
+// ============================================================
+//  INICIALIZÁCIA BLOCKLY PLOCHY
+// ============================================================
+const workspace = Blockly.inject('blocklyDiv', {
+    toolbox: document.getElementById('toolbox'),
+    grid: { spacing: 20, length: 3, colour: '#ccc', snap: true },
+    trashcan: true,
+    zoom: { controls: true, wheel: true, startScale: 1.0 }
+});
+// Prepísanie štandardných Blockly generátorov na tvoj JSON formát
+javascript.javascriptGenerator.forBlock['controls_repeat_ext'] = function(block, generator) {
+    const repeats = generator.valueToCode(block, 'TIMES', javascript.Order.ATOMIC) || '0';
+    const branch = generator.statementToCode(block, 'DO');
+    const cleanBody = branch.trim().replace(/,\s*$/, "");
+    return `{"cmd":"repeat", "times":${repeats}, "nested":[${cleanBody}]},\n`;
+};
 
-    // Funkcia na preklad blokov na text
-    function generateCode() {
-        const code = javascript.javascriptGenerator.workspaceToCode(workspace);
-        document.getElementById('codeOutput').innerText = code || "// Pridaj nejaké bloky!";
+javascript.javascriptGenerator.forBlock['controls_whileUntil'] = function(block, generator) {
+    const mode = block.getFieldValue('MODE');
+    const condition = generator.valueToCode(block, 'BOOL', javascript.Order.ATOMIC) || 'false';
+    const escapedCondition = condition.replace(/"/g, '\\"'); // Dôležité pre validný JSON!
+
+    const branch = generator.statementToCode(block, 'DO');
+    const cleanBody = branch.trim().replace(/,\s*$/, "");
+    
+    return `{"cmd":"loop_while", "mode":"${mode}", "condition":"${escapedCondition}", "nested":[${cleanBody}]},\n`;
+};
+
+//while
+
+javascript.javascriptGenerator.forBlock['simple_while'] = function(block, generator) {
+  const condition = generator.valueToCode(block, 'CONDITION', javascript.Order.ATOMIC) || 'false';
+  const branch = generator.statementToCode(block, 'DO');
+  const cleanBody = branch.trim().replace(/,\s*$/, "");
+
+  return `{"cmd":"loop_while", "condition":"${condition}", "nested":[${cleanBody}]},\n`;
+};
+
+javascript.javascriptGenerator.forBlock['controls_if'] = function(block, generator) {
+    // 1. Získame podmienku a ošetríme úvodzovky pre JSON
+    const condition = generator.valueToCode(block, 'IF0', javascript.Order.ATOMIC) || 'false';
+    const escapedCondition = condition.replace(/"/g, '\\"'); // Toto opraví chybu s úvodzovkami
+
+    // 2. Získame vnútro bloku
+    let branch = generator.statementToCode(block, 'DO0');
+    const cleanBody = branch.trim().replace(/,\s*$/, "");
+
+    // 3. Vrátime čistý JSON formát
+    return `{"cmd":"if", "condition":"${escapedCondition}", "nested":[${cleanBody}]},\n`;
+};
+
+javascript.javascriptGenerator.forBlock['math_number'] = function(block) {
+    return [block.getFieldValue('NUM'), javascript.Order.ATOMIC];
+};
+
+javascript.javascriptGenerator.forBlock['logic_compare'] = function(block, generator) {
+    const ops = {EQ:'==',NEQ:'!=',LT:'<',LTE:'<=',GT:'>',GTE:'>='};
+    const op = ops[block.getFieldValue('OP')];
+    const a = generator.valueToCode(block, 'A', javascript.Order.ATOMIC) || '0';
+    const b = generator.valueToCode(block, 'B', javascript.Order.ATOMIC) || '0';
+    return [`${a} ${op} ${b}`, javascript.Order.ATOMIC];
+};
+
+// ============================================================
+//  WEBSOCKET KOMUNIKÁCIA S ESP32
+// ============================================================
+const ESP_IP = window.location.hostname || '192.168.4.1';
+let ws = null;
+let prikazyFronta = [];
+let programBezi = false;
+
+// Hodnoty senzorov — aktualizujú sa z ESP každých 200ms
+const senzory = { s1: 0, s2: 0, s3: 0, s4: 0 };
+
+/*function aktualizujSenzorPanel() {
+    for (let i = 1; i <= 4; i++) {
+        const val = senzory[`s${i}`];
+        document.getElementById(`val-s${i}`).textContent = val;
+        const led = document.getElementById(`led-s${i}`);
+        led.className = 'senzor-led ' + (val === 1 ? 'on' : 'off');
     }
+}
 
-    // Funkcia na odoslanie kódu do ESP32
-    function nahratDoESP() {
-    // 1. Získame kód z Blockly plochy (ten istý, čo vidíš v čiernom okne)
-    const kod = javascript.javascriptGenerator.workspaceToCode(workspace);
+// Globálna premenná, kde si budeme ukladať posledné stavy*/
+let posledneSenzory = { c1: "none", c2: "none", c3: "none" };
 
-    if (!kod) {
-        alert("Plocha je prázdna! Najprv poskladaj nejaké bloky.");
+// Uprav tvoju ws.onmessage, aby si ukladala dáta do tejto premennej
+/*ws.onmessage = (event) => {
+    try {
+        const data = JSON.parse(event.data);
+        if (data.sensors) {
+            posledneSenzory = data.sensors; // Uložíme si aktuálne farby
+            // ... zvyšok tvojho kódu na zmenu LEDiek a textov ...
+        }
+    } catch(e) {  }
+};*/
+
+// Funkcia, ktorú volá náš nový Blockly blok
+function getLatestSensorColor(sensorId) {
+    return posledneSenzory[sensorId] || "none";
+}
+
+function pripojWSak() {
+    setStatus('connecting', 'Pripájam sa na robota...');
+    ws = new WebSocket(`ws://${ESP_IP}/ws`);
+
+    ws.onopen = () => {
+        setStatus('connected', 'Pripojený k robotovi ✅');
+    };
+
+    ws.onmessage = (event) => {
+        try {
+        const data = JSON.parse(event.data);
+
+        if (data.event === "emergency_stop") {
+            // Použijeme alert - vyskočí systémové okno, ktoré musíš potvrdiť
+            alert("⚠️ ROBOT NARAZIL: " + data.reason);
+            setStatus('connected', '⚠️ ZASTAVENÉ: ' + data.reason);
+            return; // Ukončíme funkciu, nič ďalšie sa nevykoná
+        }
+
+        if (data.status) {
+            if (data.status === "completed") {
+                setStatus('connected', 'Program úspešne dokončený ✅');
+                document.getElementById('btnSpustit').disabled = false;
+                document.getElementById('btnZastavit').disabled = true;
+                return;
+            }
+        }
+
+    if (data.sensors) {
+        //uložime data pre potreby Blockly bloku get_sensor_color
+        posledneSenzory = data.sensors;
+
+        for (let key in data.sensors) {
+            const farba = data.sensors[key]; // "red", "green", "blue" alebo "none"
+            const elVal = document.getElementById('val-' + key);
+            const elLed = document.getElementById('led-' + key);
+
+            if (elVal) elVal.textContent = farba;
+            if (elLed) {
+                // Nastavíme farbu krúžku podľa textu zo senzora
+                if (farba === "none") elLed.style.backgroundColor = "#ccc";
+                else elLed.style.backgroundColor = farba;
+            }
+        }
+    }
+    
+    if (data.battery !== undefined) {
+        document.getElementById('val-bat').textContent = data.battery;
+    }
+    const alertBox = document.getElementById('voltage-alert');
+        if (data.low_voltage === true) {
+            alertBox.style.display = 'block'; // Zobraziť varovanie
+        } else {
+            alertBox.style.display = 'none';  // Skryť varovanie
+        }
+
+        // Bonus: zmena farby čísla batérie
+        const batEl = document.getElementById('val-bat');
+        if (data.battery < 20) {
+            batEl.style.color = "red";
+        } else {
+            batEl.style.color = "black";
+        }
+
+    } catch (e) {
+        console.log("Log:", event.data);
+    }
+    };
+
+    ws.onclose = () => {
+        setStatus('disconnected', 'Odpojený — skúšam znova za 3s...');
+        setTimeout(pripojWSak, 3000);
+    };
+
+    ws.onerror = () => {
+        setStatus('disconnected', 'Chyba spojenia s robotom');
+    };
+}
+
+pripojWSak();
+
+// ============================================================
+//  SPÚŠŤANIE PROGRAMU
+// ============================================================
+function generateCode() {
+    const code = javascript.javascriptGenerator.workspaceToCode(workspace);
+    document.getElementById('codeOutput').innerText = code || '// Pridaj nejaké bloky!';
+}
+
+function spustitProgram() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Robot nie je pripojený! Skontroluj WiFi.');
         return;
     }
 
-    // 2. IP adresa tvojho ESP32 (tú zistíš v Serial Monitore Arduina)
-    // POZOR: Musíš tam dať tú svoju, napr. "192.168.1.15"
-    const ipRobota = "192.168.1.XX"; 
+    // 1. Získame kód z Blockly (náš JSON reťazec)
+    let code = javascript.javascriptGenerator.workspaceToCode(workspace);
+    
+    // 2. Očistíme kód (odstránime poslednú čiarku, aby bol JSON validný)
+    code = code.trim();
+    if (code.endsWith(',')) {
+        code = code.slice(0, -1);
+    }
+    
+    // 3. Vytvoríme finálny JSON objekt
+    const finalJSON = "[" + code + "]";
 
-    // 3. Pošleme to cez sieť (pomocou príkazu fetch)
-    fetch(`http://${ipRobota}/prikaz?data=${encodeURIComponent(kod)}`)
-        .then(response => {
-            if (response.ok) {
-                alert("Kód úspešne odoslaný! Robot by sa mal pohnúť.");
-            }
-        })
-        .catch(error => {
-            console.error("Chyba:", error);
-            alert("Chyba: Nepodarilo sa spojiť s robotom. Skontroluj, či ste na rovnakej Wi-Fi!");
-        });
+    try {
+        // Skontrolujeme, či je to validný JSON (len pre istotu)
+        JSON.parse(finalJSON);
+        
+        // 4. Pošleme to robotovi cez WebSocket
+        // Pridáme prefix "PROGRAM:", aby ESP32 vedelo, že ide o celý balík dát
+        ws.send("PROGRAM:" + finalJSON);
+
+        document.getElementById('btnSpustit').disabled = true;
+        document.getElementById('btnZastavit').disabled = false;
+        
+        document.getElementById('codeOutput').innerText = finalJSON;
+        setStatus('running', `Program odoslaný do robota...`);
+        
+    } catch(e) {
+        console.error("Chyba v JSON:", e);
+        alert("Chyba v blokoch: " + e.message);
+    }
 }
-</script>
 
+function poslatDalsiPrikaz() {
+    if (!programBezi || prikazyFronta.length === 0) {
+        programBezi = false;
+        document.getElementById('btnSpustit').disabled = false;
+        document.getElementById('btnZastavit').disabled = true;
+        setStatus('connected', 'Program dokončený ✅');
+        return;
+    }
+
+    const prikaz = prikazyFronta.shift();
+    setStatus('running', `Vykonávam: ${prikaz.cmd} (${prikaz.value})`);
+    ws.send(JSON.stringify(prikaz));
+}
+
+function zastavitRobota() {
+    prikazyFronta = [];
+    programBezi = false;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send("STOP");
+    }
+    document.getElementById('btnSpustit').disabled = false;
+    document.getElementById('btnZastavit').disabled = true;
+    setStatus('connected', 'Program zastavený 🛑');
+}
+
+// ============================================================
+//  POMOCNÉ FUNKCIE
+// ============================================================
+function setStatus(stav, text) {
+    const dot  = document.getElementById('status-dot');
+    const span = document.getElementById('status-text');
+    dot.className = '';
+    if (stav === 'connected')   dot.classList.add('connected');
+    if (stav === 'running')     dot.classList.add('running');
+    if (stav === 'disconnected' || stav === 'connecting') dot.classList.add('disconnected');
+    span.textContent = text;
+}
+
+function sendCmd(obj) { /* placeholder */ }
+
+</script>
 </body>
 </html>
