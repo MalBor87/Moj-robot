@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Programovanie robota</title>
 
-    <script src="blockly_compressed.js"></script>
-    <script src="blocks_compressed.js"></script>
-    <script src="javascript_compressed.js"></script>
-    <script src="en.js"></script>
+    <script src="/blockly_compressed.js"></script>
+    <script src="/blocks_compressed.js"></script>
+    <script src="/javascript_compressed.js"></script>
+    <script src="/en.js"></script>
 
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
@@ -149,13 +149,11 @@
 
     <category name="📡 Senzory" colour="30">
         <block type="robot_while_color"></block>
-        <block type="wait_until_color"></block>
-        <!-- <block type="sensor_digital"></block> 
+        <!--<block type="wait_until_color"></block>
+        <block type="sensor_digital"></block> 
         <block type="sensor_digital_value"></block> -->
         <block type="get_sensor_color"></block>
-        <block type="text">
-            <field name="TEXT">red</field>
-        </block>
+        <block type="color_picker_custom"></block>
     </category>
 
     <!-- <category name="🔢 Matematika" colour="230">
@@ -163,23 +161,18 @@
         <block type="math_arithmetic"></block>
     </category> -->
     
-    <!-- <category name="🔁 Opakovanie" colour="120">
-        <block type="controls_repeat_ext">
-            <value name="TIMES">
-                <shadow type="math_number"><field name="NUM">3</field></shadow>
-            </value>
-        </block>
-    </category> -->
-    
-    <category name="❓ Logika" colour="210">
-        <block type="controls_if"></block>
+    <category name="🔁 Cykly" colour="120">
         <block type="controls_repeat_ext">
             <value name="TIMES">
                 <shadow type="math_number"><field name="NUM">3</field></shadow>
             </value>
         </block>
         <block type="simple_while"></block>
-        <block type="controls_whileUntil"></block>
+    </category>
+    
+    <category name="❓ Logika" colour="210">
+        <block type="controls_if"></block>
+        <!--<block type="controls_whileUntil"></block>-->
         <block type="logic_compare"></block>
         <block type="math_number"></block>
         <block type="math_arithmetic"></block>
@@ -301,7 +294,25 @@ Blockly.defineBlocksWithJsonArray([
   "colour": 30,
   "tooltip": "Vráti aktuálnu farbu zo zvoleného senzora."
 },
-
+// hodnota ktorej sa ma rovnať senzor
+{
+  "type": "color_picker_custom",
+  "message0": "farba %1",
+  "args0": [
+    {
+      "type": "field_dropdown",
+      "name": "COLOR",
+      "options": [
+        ["červená", "red"],
+        ["zelená", "green"],
+        ["modrá", "blue"]
+      ]
+    }
+  ],
+  "output": "String",
+  "colour": 20,
+  "tooltip": "Vyber si farbu zo zoznamu."
+},
 //while
 
 {
@@ -386,6 +397,12 @@ javascript.javascriptGenerator.forBlock['robot_while_color'] = function(block, g
 
   // Výsledný JSON príkaz pre ESP32
   return `{"cmd":"loop_color", "target":"${color}", "nested":[${branch}]},`;
+};
+// Generator pro blok, který vrací zvolenou barvu jako text (red, green, blue)
+javascript.javascriptGenerator.forBlock['color_picker_custom'] = function(block) {
+  var color = block.getFieldValue('COLOR');
+  // Vrátime hodnotu v úvodzovkách, aby sa s ňou dalo porovnávať ako s textom
+  return [`"${color}"`, javascript.Order.ATOMIC];
 };
 
 
