@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Programovanie robota</title>
 
-    <script src="blockly_compressed.js"></script>
-    <script src="blocks_compressed.js"></script>
-    <script src="javascript_compressed.js"></script>
-    <script src="en.js"></script>
+    <script src="/blockly_compressed.js"></script>
+    <script src="/blocks_compressed.js"></script>
+    <script src="/javascript_compressed.js"></script>
+    <script src="/en.js"></script>
 
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
@@ -87,7 +87,7 @@
     <strong>🚥 Senzory farby:</strong>
     <div class="senzor-item">
         <div class="senzor-led" id="led-c1"></div>
-        <span>Senzor hrany: <b id="val-c1">-</b></span>
+        <span>Senzor predný: <b id="val-c1">-</b></span>
     </div>
     <div class="senzor-item">
         <div class="senzor-led" id="led-c2"></div>
@@ -100,7 +100,8 @@
     
     <div class="senzor-item" style="margin-left: 20px;">
         <strong>🔋 Batéria:</strong>
-        <span id="val-bat">0</span>%
+    <!-- Sem budeme zapisovať "0.00V (0%)" -->
+    <span id="val-bat-full">Načítavam...</span>
     </div>
 </div>
 <div id="voltage-alert" style="display: none; background: #ff4444; color: white; padding: 10px; text-align: center; font-weight: bold; border-radius: 8px; margin-bottom: 10px;">
@@ -148,8 +149,8 @@
     </category>
 
     <category name="📡 Senzory" colour="30">
-        <block type="robot_while_color"></block>
-        <!--<block type="wait_until_color"></block>
+        <!--<block type="robot_while_color"></block>
+        <block type="wait_until_color"></block>
         <block type="sensor_digital"></block> 
         <block type="sensor_digital_value"></block> -->
         <block type="get_sensor_color"></block>
@@ -554,22 +555,29 @@ function pripojWSak() {
         }
     }
     
-    if (data.battery !== undefined) {
-        document.getElementById('val-bat').textContent = data.battery;
-    }
-    const alertBox = document.getElementById('voltage-alert');
-        if (data.low_voltage === true) {
-            alertBox.style.display = 'block'; // Zobraziť varovanie
-        } else {
-            alertBox.style.display = 'none';  // Skryť varovanie
+    // --- NOVÉ SPRACOVANIE BATÉRIE ---
+        if (data.battery_v !== undefined && data.battery_pct !== undefined) {
+            const batEl = document.getElementById('val-bat-full');
+            
+            // Zobrazenie vo formáte: 7.82V (85%)
+            batEl.textContent = `${data.battery_v}V (${data.battery_pct}%)`;
+
+            // Farba textu: Ak klesne pod 20%, sčervená
+            if (data.battery_pct < 20) {
+                batEl.style.color = "red";
+                batEl.style.fontWeight = "bold";
+            } else {
+                batEl.style.color = "black";
+                batEl.style.fontWeight = "normal";
+            }
         }
 
-        // Bonus: zmena farby čísla batérie
-        const batEl = document.getElementById('val-bat');
-        if (data.battery < 20) {
-            batEl.style.color = "red";
+        // Zobrazenie veľkého varovania pri nízkom napätí
+        const alertBox = document.getElementById('voltage-alert');
+        if (data.low_voltage === true) {
+            alertBox.style.display = 'block';
         } else {
-            batEl.style.color = "black";
+            alertBox.style.display = 'none';
         }
 
     } catch (e) {
