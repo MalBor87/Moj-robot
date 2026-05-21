@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Programovanie robota</title>
 
-    <script src="blockly_compressed.js"></script>
-    <script src="blocks_compressed.js"></script>
-    <script src="javascript_compressed.js"></script>
-    <script src="en.js"></script>
+    <script src="/blockly_compressed.js"></script>
+    <script src="/blocks_compressed.js"></script>
+    <script src="/javascript_compressed.js"></script>
+    <script src="/en.js"></script>
 
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
@@ -114,7 +114,7 @@
         <button onclick="generateCode()">👁 Zobraziť kód</button>
         <button id="btnSpustit"  onclick="spustitProgram()">▶ Spustiť program</button>
         <button id="btnZastavit" onclick="zastavitRobota()" disabled>⏹ Zastaviť</button>
-        <button onclick="ulozDoESP_Custom()" style="background-color: #28a745; color: white;">💾 Uložiť ako...</button>
+        <button onclick="ulozDoESP_Custom()" style="background-color: #852ed6; color: white;">💾 Uložiť ako...</button>
         <button onclick="nacitajZoznamZESP()" style="background-color: #17a2b8; color: white;">📂 Načítať program</button>
     </div>
 
@@ -715,41 +715,63 @@ function ulozDoESP_Custom() {
 // 2. FUNKCIA, KTORÁ SI VYPYTA ZOZNAM SÚBOROV A DÁ USERU NA VÝBER
 function nacitajZoznamZESP() {
     fetch('/list_programs')
-    .then(response => response.json())
-    .then(zoznamSuborov => {
-        if (zoznamSuborov.length === 0) {
-            alert("V ESP32 nie sú uložené žiadne programy.");
-            return;
-        }
-
-        // Vytvoríme textové menu pre prompt
-        let sprava = "Vyber si program zadaním jeho čísla:\n\n";
-        zoznamSuborov.forEach((subor, index) => {
-            sprava += `${index + 1}. ${subor}\n`;
-        });
-
-        let volba = prompt(sprava);
-        if (!volba) return;
-
-        let indexVolby = parseInt(volba) - 1;
-        if (indexVolby >= 0 && indexVolby < zony.length || zoznamSuborov[indexVolby] !== undefined) {
-            let vybranySubor = zoznamSuborov[indexVolby];
-            skutocneNacitajProgram(vybranySubor);
-        } else {
-            alert("Neplatná voľba!");
-        }
+    .then(response => {
+        if (!response.ok) throw new Error("Chyba servera pri načítavaní zoznamu.");
+        return response.json();
     })
-    .catch(error => alert("Chyba pri načítavaní zoznamu: " + error));
+    .then(zoznamSuborov => {
+        const container = document.getElementById("zoznamProgramovContainer");
+        container.innerHTML = ""; // Vyčistíme starý zoznam
+
+        if (zoznamSuborov.length === 0) {
+            container.innerHTML = "<p style='color:gray;'>V ESP32 nie sú žiadne programy.</p>";
+        } else {
+            // Pre každý program vytvoríme samostatné klikateľné tlačidlo
+            zoznamSuborov.forEach(subor => {
+                const btn = document.createElement("button");
+                btn.innerText = "📁 " + subor;
+                btn.style.width = "100%";
+                btn.style.textAlign = "left";
+                btn.style.padding = "10px";
+                btn.style.margin = "5px 0";
+                btn.style.backgroundColor = "#f8f9fa";
+                btn.style.border = "1px solid #dee2e6";
+                btn.style.borderRadius = "5px";
+                btn.style.cursor = "pointer";
+                
+                // Efekt po prejdení myšou (hover)
+                btn.onmouseover = () => btn.style.backgroundColor = "#e2e6ea";
+                btn.onmouseout = () => btn.style.backgroundColor = "#f8f9fa";
+
+                // Čo sa stane po kliknutí na program
+                btn.onclick = function() {
+                    skutocneNacitajProgram(subor);
+                    zavriModal();
+                };
+
+                container.appendChild(btn);
+            });
+        }
+
+        // Zobrazíme vyskakovacie okno (flex ho vycentruje)
+        document.getElementById("programModal").style.display = "flex";
+    })
+    .catch(error => alert("Chyba pri načítavaní zoznamu: " + error.message));
 }
 
-// 3. FUNKCIA, KTORÁ STIAHNE KONKRÉTNY VYBRANÝ SÚBOR
+// 3. Pomocná funkcia na zatvorenie okna
+function zavriModal() {
+    document.getElementById("programModal").style.display = "none";
+}
+
+// 4. Stiahnutie samotného vybraného programu (túto už máš, len pre istotu)
 function skutocneNacitajProgram(filename) {
     fetch(`/load_program?name=${filename}`)
     .then(response => response.json())
     .then(jsonStav => {
         workspace.clear();
         Blockly.serialization.workspaces.load(jsonStav, workspace);
-        alert(`Program "${filename}" úspešne načítaný!`);
+        console.log(`Program "${filename}" úspešne načítaný do Blockly.`);
     })
     .catch(error => alert("Chyba pri otváraní súboru: " + error));
 }
@@ -757,5 +779,14 @@ function skutocneNacitajProgram(filename) {
 function sendCmd(obj) { /* placeholder */ }
 
 </script>
+<div id="programModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
+    <div style="background-color: white; padding: 20px; border-radius: 10px; min-width: 300px; max-width: 500px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);">
+        <h3 style="margin-top:0;">Vyber si program:</h3>
+        
+        <div id="zoznamProgramovContainer" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+        
+        <button onclick="zavriModal()" style="width:100%; background-color: #6c757d; color: white; padding: 8px; border: none; border-radius: 5px; cursor: pointer;">Zrušiť</button>
+    </div>
+</div>
 </body>
 </html>
