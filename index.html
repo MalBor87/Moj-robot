@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Programovanie robota</title>
 
-    <script src="blockly_compressed.js"></script>
-    <script src="blocks_compressed.js"></script>
-    <script src="javascript_compressed.js"></script>
-    <script src="en.js"></script>
+    <script src="/blockly_compressed.js"></script>
+    <script src="/blocks_compressed.js"></script>
+    <script src="/javascript_compressed.js"></script>
+    <script src="/en.js"></script>
 
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
@@ -114,6 +114,8 @@
         <button onclick="generateCode()">👁 Zobraziť kód</button>
         <button id="btnSpustit"  onclick="spustitProgram()">▶ Spustiť program</button>
         <button id="btnZastavit" onclick="zastavitRobota()" disabled>⏹ Zastaviť</button>
+        <button onclick="ulozDoESP_Custom()" style="background-color: #28a745; color: white;">💾 Uložiť ako...</button>
+        <button onclick="nacitajZoznamZESP()" style="background-color: #17a2b8; color: white;">📂 Načítať program</button>
     </div>
 
     <div id="status-bar">
@@ -403,7 +405,7 @@ javascript.javascriptGenerator.forBlock['robot_while_color'] = function(block, g
 javascript.javascriptGenerator.forBlock['color_picker_custom'] = function(block) {
   var color = block.getFieldValue('COLOR');
   // Vrátime hodnotu v úvodzovkách, aby sa s ňou dalo porovnávať ako s textom
-  return [`"${color}"`, javascript.Order.ATOMIC];
+  return [`'${color}'`, javascript.Order.ATOMIC];
 };
 
 
@@ -438,11 +440,18 @@ javascript.javascriptGenerator.forBlock['controls_whileUntil'] = function(block,
 //while
 
 javascript.javascriptGenerator.forBlock['simple_while'] = function(block, generator) {
-  const condition = generator.valueToCode(block, 'CONDITION', javascript.Order.ATOMIC) || 'false';
+  let condition = generator.valueToCode(block, 'CONDITION', javascript.Order.ATOMIC) || 'false';
+  
+  // OPRAVA: Nahradíme všetky dvojité úvodzovky (") v podmienke jednoduchými ('),
+  // aby neukončili reťazec v JSON objekte.
+  const escapedCondition = condition.replace(/"/g, "'");
+
   const branch = generator.statementToCode(block, 'DO');
+  // Očistíme vnútro cyklu od prebytočných čiarok na konci
   const cleanBody = branch.trim().replace(/,\s*$/, "");
 
-  return `{"cmd":"loop_while", "condition":"${condition}", "nested":[${cleanBody}]},\n`;
+  // Vrátime validný JSON reťazec
+  return `{"cmd":"loop_while", "condition":"${escapedCondition}", "nested":[${cleanBody}]},\n`;
 };
 
 javascript.javascriptGenerator.forBlock['controls_if'] = function(block, generator) {
@@ -679,6 +688,70 @@ function setStatus(stav, text) {
     if (stav === 'running')     dot.classList.add('running');
     if (stav === 'disconnected' || stav === 'connecting') dot.classList.add('disconnected');
     span.textContent = text;
+}
+
+// 1. FUNKCIA PRE ULOŽENIE S VLASTNÝM NÁZVOM
+function ulozDoESP_Custom() {
+    let nazov = prompt("Zadaj názov programu (bez diakritiky a medzier, napr. stvorec):");
+    if (!nazov) return; // Ak používateľ klikol na Zrušiť
+
+    // Očistíme názov (odstránime prípadnú príponu .json, ak ju tam používateľ napísal)
+    nazov = nazov.replace(".json", "").trim();
+
+    const jsonStav = Blockly.serialization.workspaces.save(workspace);
+    const textNaUlozenie = JSON.stringify(jsonStav);
+
+    // Názov súboru pošleme v hlavičke (Header) URL adresy
+    fetch(`/save_program?name=${nazov}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: textNaUlozenie
+    })
+    .then(response => response.text())
+    .then(data => alert(`Program "${nazov}" bol úspešne uložený!`))
+    .catch(error => alert("Chyba pri ukladaní: " + error));
+}
+
+// 2. FUNKCIA, KTORÁ SI VYPYTA ZOZNAM SÚBOROV A DÁ USERU NA VÝBER
+function nacitajZoznamZESP() {
+    fetch('/list_programs')
+    .then(response => response.json())
+    .then(zoznamSuborov => {
+        if (zoznamSuborov.length === 0) {
+            alert("V ESP32 nie sú uložené žiadne programy.");
+            return;
+        }
+
+        // Vytvoríme textové menu pre prompt
+        let sprava = "Vyber si program zadaním jeho čísla:\n\n";
+        zoznamSuborov.forEach((subor, index) => {
+            sprava += `${index + 1}. ${subor}\n`;
+        });
+
+        let volba = prompt(sprava);
+        if (!volba) return;
+
+        let indexVolby = parseInt(volba) - 1;
+        if (indexVolby >= 0 && indexVolby < zony.length || zoznamSuborov[indexVolby] !== undefined) {
+            let vybranySubor = zoznamSuborov[indexVolby];
+            skutocneNacitajProgram(vybranySubor);
+        } else {
+            alert("Neplatná voľba!");
+        }
+    })
+    .catch(error => alert("Chyba pri načítavaní zoznamu: " + error));
+}
+
+// 3. FUNKCIA, KTORÁ STIAHNE KONKRÉTNY VYBRANÝ SÚBOR
+function skutocneNacitajProgram(filename) {
+    fetch(`/load_program?name=${filename}`)
+    .then(response => response.json())
+    .then(jsonStav => {
+        workspace.clear();
+        Blockly.serialization.workspaces.load(jsonStav, workspace);
+        alert(`Program "${filename}" úspešne načítaný!`);
+    })
+    .catch(error => alert("Chyba pri otváraní súboru: " + error));
 }
 
 function sendCmd(obj) { /* placeholder */ }
