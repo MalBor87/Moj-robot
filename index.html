@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Programovanie robota</title>
 
-    <script src="blockly_compressed.js"></script>
-    <script src="blocks_compressed.js"></script>
-    <script src="javascript_compressed.js"></script>
-    <script src="en.js"></script>
+    <script src="/blockly_compressed.js"></script>
+    <script src="/blocks_compressed.js"></script>
+    <script src="/javascript_compressed.js"></script>
+    <script src="/en.js"></script>
 
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
@@ -114,6 +114,7 @@
         <button onclick="generateCode()">👁 Zobraziť kód</button>
         <button id="btnSpustit"  onclick="spustitProgram()">▶ Spustiť program</button>
         <button id="btnZastavit" onclick="zastavitRobota()" disabled>⏹ Zastaviť</button>
+        <button id="btnKrok" onclick="vykonajJedenKrok()" style="background-color: #fd7e14; color: white;">👣 Krok vpred</button>
         <button onclick="ulozDoESP_Custom()" style="background-color: #852ed6; color: white;">💾 Uložiť ako...</button>
         <button onclick="nacitajZoznamZESP()" style="background-color: #17a2b8; color: white;">📂 Načítať program</button>
     </div>
@@ -531,11 +532,22 @@ function pripojWSak() {
         const data = JSON.parse(event.data);
 
         if (data.event === "emergency_stop") {
-            // Použijeme alert - vyskočí systémové okno, ktoré musíš potvrdiť
-            alert("⚠️ ROBOT NARAZIL: " + data.reason);
-            setStatus('connected', '⚠️ ZASTAVENÉ: ' + data.reason);
-            return; // Ukončíme funkciu, nič ďalšie sa nevykoná
-        }
+        // 1. Vyčistíme lokálny front príkazov na webe
+        prikazyFronta = [];
+        debugFronta = []; // <-- DOPLNENÉ: Vymaže debug ak robot narazí na červenú
+        programBezi = false;
+
+        // 2. Odomkneme tlačidlo Spustiť a zamkneme tlačidlo Zastaviť
+        document.getElementById('btnSpustit').disabled = false;
+        document.getElementById('btnZastavit').disabled = true;
+
+        // 3. Prepneme stavový riadok späť do režimu "Pripojený" (zelená bodka)
+        setStatus('connected', '⚠️ ZASTAVENÉ: ' + (data.reason || "Detegovaná červená"));
+
+        // 4. Vyhodíme oznam pre používateľa
+        alert("⚠️ ROBOT NÚDZOVO ZASTAVIL:\n" + (data.reason || "Detegovaná červená farba."));
+        return; 
+    }
 
         if (data.status) {
             if (data.status === "completed") {
@@ -668,6 +680,7 @@ function poslatDalsiPrikaz() {
 
 function zastavitRobota() {
     prikazyFronta = [];
+    debugFronta = []; // <-- DOPLNENÉ: Vymaže aj rozkrokovaný debug program
     programBezi = false;
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send("STOP");
@@ -734,14 +747,25 @@ function nacitajZoznamZESP() {
                 btn.style.textAlign = "left";
                 btn.style.padding = "10px";
                 btn.style.margin = "5px 0";
-                btn.style.backgroundColor = "#f8f9fa";
                 btn.style.border = "1px solid #dee2e6";
                 btn.style.borderRadius = "5px";
                 btn.style.cursor = "pointer";
                 
+                // --- OPRAVA FARIEB ---
+                btn.style.backgroundColor = "#f8f9fa"; // Svetlé pozadie
+                btn.style.color = "#212529";           // Tmavý (takmer čierny) text, aby bol hneď vidno
+
                 // Efekt po prejdení myšou (hover)
-                btn.onmouseover = () => btn.style.backgroundColor = "#e2e6ea";
-                btn.onmouseout = () => btn.style.backgroundColor = "#f8f9fa";
+                btn.onmouseover = () => {
+                btn.style.backgroundColor = "#007bff"; // Pozadie zmeníme na peknú modrú
+                btn.style.color = "#ffffff";           // Text zmeníme na biely (vysoký kontrast)
+                };
+    
+                // Návrat do pôvodného stavu, keď myš odíde
+                btn.onmouseout = () => {
+                btn.style.backgroundColor = "#f8f9fa"; // Späť na svetlé pozadie
+                btn.style.color = "#212529";           // Späť na tmavý text
+                };
 
                 // Čo sa stane po kliknutí na program
                 btn.onclick = function() {
@@ -775,6 +799,66 @@ function skutocneNacitajProgram(filename) {
     })
     .catch(error => alert("Chyba pri otváraní súboru: " + error));
 }
+
+let debugFronta = []; 
+
+function vykonajJedenKrok() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Robot nie je pripojený! Skontroluj WiFi.');
+        return;
+    }
+
+    // 1. Ak je fronta prázdna, znamená to, že buď štartujeme debug, alebo predchádzajúci program skončil
+    if (debugFronta.length === 0) {
+        let code = javascript.javascriptGenerator.workspaceToCode(workspace);
+        code = code.trim();
+        if (code.endsWith(',')) {
+            code = code.slice(0, -1);
+        }
+        
+        // Ak na ploche nič nie je, vyskočíme
+        if (!code) {
+            alert("Pridaj nejaké bloky!");
+            return;
+        }
+
+        const finalJSON = "[" + code + "]";
+        try {
+            // Rozbalíme vygenerovaný JSON kód do skutočného poľa v JavaScripte
+            debugFronta = JSON.parse(finalJSON);
+            setStatus('running', 'Spustený debug režim. Klikaj na tlačidlo Krok vpred...');
+        } catch(e) {
+            alert("Chyba v štruktúre blokov: " + e.message);
+            return;
+        }
+    }
+
+    // 2. Ak vo fronte máme príkazy, zoberieme prvý z nich
+    if (debugFronta.length > 0) {
+        const aktualnyPrikaz = debugFronta.shift(); // Vyberie a odstráni prvý príkaz z poľa
+        
+        // Zobrazíme v status bare, čo práve posielame
+        setStatus('running', `👣 DEBUG Krok: ${aktualnyPrikaz.cmd} (Zostáva príkazov: ${debugFronta.length})`);
+        
+        // Vytvoríme pole len s týmto jedným príkazom, zabalíme do "PROGRAM:" a pošleme ho
+        // ESP32 spracuje toto pole s jedným príkazom, vykoná ho a zastaví sa.
+        const balikPreESP = "PROGRAM:[" + JSON.stringify(aktualnyPrikaz) + "]";
+        ws.send(balikPreESP);
+        
+        // Vizualizácia poslaného príkazu v okienku pre kód
+        document.getElementById('codeOutput').innerText = JSON.stringify(aktualnyPrikaz);
+    }
+
+    // 3. Ak sme práve poslali posledný príkaz, fronta je prázdna a debug končí
+    if (debugFronta.length === 0) {
+        // Použijeme setTimeout, aby oznam nabehol až chvíľku po odoslaní príkazu
+        setTimeout(() => {
+            setStatus('connected', 'Debug program dokončený 🏁 (Všetky kroky odoslané)');
+        }, 1000);
+    }
+}
+
+
 
 function sendCmd(obj) { /* placeholder */ }
 
